@@ -1,0 +1,9 @@
+{
+    "name": "gfclient_poc",
+    "version": "1.0.0",
+    "main": "poc.js",
+    "license": "MIT",
+    "dependencies": {
+        "@faker-js/faker": "^6.1.2"
+    }
+}
