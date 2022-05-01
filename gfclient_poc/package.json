@@ -1,9 +1,11 @@
 {
     "name": "gfclient_poc",
     "version": "1.0.0",
+    "type": "module",
     "main": "poc.js",
     "license": "MIT",
     "dependencies": {
-        "@faker-js/faker": "^6.1.2"
+        "@faker-js/faker": "^6.1.2",
+        "axios": "^0.26.1"
     }
 }
