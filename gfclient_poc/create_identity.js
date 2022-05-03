@@ -1,14 +1,15 @@
 #!/bin/node
 import fs from "fs"
-import GfclientEncoding from "./gfclient_encoding.js"
+import {BlackboxEncoding} from "./blackbox_encoding.js"
+import {Blackbox} from "./blackbox.js"
 
-const IDENTITY_FIELDS = ['v', 'tz', "dnt", "product", 'osType', 'app', "vendor", "cookies", 'mem', 'con', "lang", "plugins", 'gpu', "fonts", "audioC", "analyser", 'width', 'height', "depth", 'lStore', "sStore", "video", "audio", "media", "permissions", 'audioFP', 'webglFP', "canvasFP", "uuid", "osVersion", "vector", 'userAgent', "request"]
+const IDENTITY_FIELDS = ['v', 'tz', "dnt", "product", 'osType', 'app', "vendor", "cookies", 'mem', 'con', "lang", "plugins", 'gpu', "fonts", "audioC", "analyser", 'width', 'height', "depth", 'lStore', "sStore", "video", "audio", "media", "permissions", 'audioFP', 'webglFP', "canvasFP", "osVersion", 'userAgent']
 
 function main() {
     const filename = process.argv[2]
     const blackbox = fs.readFileSync(filename, {encoding: "utf8", flag: 'r'});
 
-    const fingerprint = GfclientEncoding.decode_blackbox(blackbox)
+    const fingerprint = BlackboxEncoding.decode(blackbox)
 
     const identity = {
         timing:
@@ -22,11 +23,12 @@ function main() {
         fingerprint: {}
     }
 
-    for (let field of IDENTITY_FIELDS) {
+    for (const field of IDENTITY_FIELDS) {
         identity.fingerprint[field] = fingerprint[field]
     }
 
-    identity.fingerprint.vector = Buffer.from(fingerprint.vector, "base64").toString("latin1")
+    identity.fingerprint.vector = Blackbox.generate_vector()
+    identity.fingerprint.uuid = Blackbox.generate_uuid()
     const indentity_json = JSON.stringify(identity, null, "\t")
     console.log(indentity_json)
 }

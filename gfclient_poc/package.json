@@ -2,7 +2,7 @@
     "name": "gfclient_poc",
     "version": "1.0.0",
     "type": "module",
-    "main": "poc.js",
+    "main": "nostale_poc.js",
     "license": "MIT",
     "dependencies": {
         "@faker-js/faker": "^6.1.2",

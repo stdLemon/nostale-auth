@@ -1,13 +1,23 @@
-#!/bin/node
 import faker from "@faker-js/faker"
-import fs from "fs"
 import axios from "axios"
-import GfclientEncoding from "./gfclient_encoding.js"
+import {BlackboxEncoding} from "./blackbox_encoding.js"
+import {BlackboxEncryption} from "./blackbox_encryption.js"
 
 const SERVER_FILE_GAME1_FILE = "https://gameforge.com/tra/game1.js"
+const VECTOR_LENGTH = 100
 
 function random_ascii_character() {
     return String.fromCharCode(0x20 + Math.random() * (0x7E - 0x20) | 0x0)
+}
+
+function generate_vector() {
+    const vector_content = Array.from(Array(VECTOR_LENGTH), random_ascii_character).join('')
+    const time = new Date().getTime()
+    return `${vector_content} ${time}`
+}
+
+function generate_uuid(arg = 3) {
+    return new Array(arg).fill(0x0).map(() => Math.random().toString(0x24).substr(0x2, 0x9)).reduce((a, b) => a + b, '');
 }
 
 async function get_server_date() {
@@ -50,19 +60,30 @@ async function create_fingerprint(identity) {
     return fingerprint
 }
 
-async function main() {
-    const filename = process.argv[2]
-    const identity = JSON.parse(fs.readFileSync(filename, {encoding: "utf8", flag: 'r'}))
-
-    identity.fingerprint.vector = update_vector(identity.fingerprint.vector)
-    console.log("identity", identity)
-    console.log()
-    fs.writeFileSync(filename, JSON.stringify(identity, null, "\t"))
-    const fingerprint = await create_fingerprint(identity)
-    console.log("fingerprint", fingerprint)
-    console.log()
-    const blackbox = GfclientEncoding.encode_blackbox(fingerprint)
-    console.log("blackbox", blackbox)
+function create_blackbox(fingerprint, request = null) {
+    fingerprint.request = request
+    return BlackboxEncoding.encode(fingerprint)
 }
 
-main()
+function create_encrypted_blackbox(fingerprint, gs_id, account_id, installation) {
+    const delim_index = gs_id.lastIndexOf("-")
+    const session = gs_id.substring(0, delim_index)
+
+    const request = {
+        features: [faker.datatype.number({min: 1, max: 0xFFFFFFFE - 1})],
+        installation,
+        session
+    }
+
+    const blackbox = create_blackbox(fingerprint, request)
+    return BlackboxEncryption.encrypt(blackbox, gs_id, account_id)
+}
+
+export const Blackbox = {
+    create_fingerprint,
+    create_blackbox,
+    create_encrypted_blackbox,
+    generate_uuid,
+    generate_vector,
+    update_vector
+}
