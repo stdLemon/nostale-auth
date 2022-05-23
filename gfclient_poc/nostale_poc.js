@@ -12,7 +12,7 @@ async function main() {
     const identity = JSON.parse(fs.readFileSync(identity_path))
     const account = JSON.parse(fs.readFileSync(account_path))
 
-    const gf_launcher = new GfLauncher(identity.fingerprint.userAgent, cef_user_agent, account.installation_id)
+    const gf_launcher = new GfLauncher(identity.fingerprint.userAgent, cef_user_agent, identity.installation_id)
     const auth_ok = await gf_launcher.auth(account.email, account.password, account.locale)
 
     if (!auth_ok) {

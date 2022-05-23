@@ -2,6 +2,7 @@
 import fs from "fs"
 import {BlackboxEncoding} from "./blackbox_encoding.js"
 import {Blackbox} from "./blackbox.js"
+import {faker} from "@faker-js/faker"
 
 const IDENTITY_FIELDS = ['v', 'tz', "dnt", "product", 'osType', 'app', "vendor", "cookies", 'mem', 'con', "lang", "plugins", 'gpu', "fonts", "audioC", "analyser", 'width', 'height', "depth", 'lStore', "sStore", "video", "audio", "media", "permissions", 'audioFP', 'webglFP', "canvasFP", "osVersion", 'userAgent']
 
@@ -20,7 +21,8 @@ function main() {
             dC: {min: 0, max: 0}, // canvas timing
             d: {min: 0, max: 0}, // sum of timings + few ms
         },
-        fingerprint: {}
+        fingerprint: {},
+        installation_id: faker.datatype.uuid()
     }
 
     for (const field of IDENTITY_FIELDS) {
