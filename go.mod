@@ -1,4 +1,4 @@
-module github.com/stdLemon/gfclient-auth
+module github.com/stdLemon/nostale-auth
 
 go 1.18
 
