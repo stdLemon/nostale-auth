@@ -50,6 +50,13 @@ func NewGfClient(gf_user_agent, cef_user_agent, installation_id string) GfClient
 	}
 }
 
+func (client *GfClient) ensureBearer() error {
+	if client.bearer == "" {
+		return errors.New("bearer must be set")
+	}
+	return nil
+}
+
 func (client *GfClient) Auth(email, password, locale string) error {
 	const url string = "https://spark.gameforge.com/api/v1/auth/sessions"
 
@@ -73,20 +80,24 @@ func (client *GfClient) Auth(email, password, locale string) error {
 	client.addDefaultHeaders(request.Header)
 
 	http_client := new(http.Client)
-	http_response, err := http_client.Do(request)
+	resp, err := http_client.Do(request)
 	if err != nil {
 		return err
 	}
 
-	switch http_response.StatusCode {
+	switch resp.StatusCode {
 	case http.StatusForbidden:
 		return errors.New("invalid account data")
 	case http.StatusConflict:
 		return errors.New("captcha")
 	}
 
+	if err = checkStatusCode(http.StatusCreated, resp.StatusCode); err != nil {
+		return err
+	}
+
 	var parsed_response AuthResponse
-	err = json.NewDecoder(http_response.Body).Decode(&parsed_response)
+	err = json.NewDecoder(resp.Body).Decode(&parsed_response)
 	if err != nil {
 		return err
 	}
@@ -99,8 +110,22 @@ func (client *GfClient) Auth(email, password, locale string) error {
 	return nil
 }
 
+func checkStatusCode(expected, returned int) error {
+	if expected != returned {
+		return fmt.Errorf("got unexpected status code expected %s, got %s",
+			http.StatusText(expected),
+			http.StatusText(returned),
+		)
+	}
+	return nil
+}
+
 func (client *GfClient) GetGameAccounts() ([]GameAccount, error) {
 	const url string = "https://spark.gameforge.com/api/v1/user/accounts"
+
+	if err := client.ensureBearer(); err != nil {
+		return nil, err
+	}
 
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -117,6 +142,10 @@ func (client *GfClient) GetGameAccounts() ([]GameAccount, error) {
 	if err != nil {
 		return nil, err
 
+	}
+
+	if err = checkStatusCode(http.StatusOK, resp.StatusCode); err != nil {
+		return nil, err
 	}
 
 	parsed_response := make(map[string]GameAccount)
@@ -136,6 +165,10 @@ func (client *GfClient) GetGameAccounts() ([]GameAccount, error) {
 
 func (client *GfClient) Iovation(identity_manager IdentityManager, account_id string) error {
 	const url string = "https://spark.gameforge.com/api/v1/auth/iovation"
+
+	if err := client.ensureBearer(); err != nil {
+		return err
+	}
 
 	blackbox, err := NewBlackbox(identity_manager, nil)
 	if err != nil {
@@ -168,6 +201,10 @@ func (client *GfClient) Iovation(identity_manager IdentityManager, account_id st
 		return err
 	}
 
+	if err = checkStatusCode(http.StatusOK, resp.StatusCode); err != nil {
+		return err
+	}
+
 	parsed_response := new(IovationResponse)
 	err = json.NewDecoder(resp.Body).Decode(parsed_response)
 	defer resp.Body.Close()
@@ -185,6 +222,10 @@ func (client *GfClient) Iovation(identity_manager IdentityManager, account_id st
 
 func (client *GfClient) Codes(identity_manager IdentityManager, account_id, game_id string) (string, error) {
 	const url string = "https://spark.gameforge.com/api/v1/auth/thin/codes"
+
+	if err := client.ensureBearer(); err != nil {
+		return "", err
+	}
 
 	gs_id := generateGsid()
 	encrypted_blackbox, err := NewEncryptedBlackbox(identity_manager, gs_id, account_id, client.installation_id)
@@ -227,8 +268,8 @@ func (client *GfClient) Codes(identity_manager IdentityManager, account_id, game
 		return "", err
 	}
 
-	if resp.StatusCode != http.StatusCreated {
-		return "", errors.New(fmt.Sprintf("expected 201 Created status, got %s", resp.Status))
+	if err = checkStatusCode(http.StatusCreated, resp.StatusCode); err != nil {
+		return "", err
 	}
 
 	if parsed_response.Message != "" {
@@ -248,7 +289,7 @@ func FindGameAccount(name string, accounts []GameAccount) (GameAccount, error) {
 			return acc, nil
 		}
 	}
-	return GameAccount{}, errors.New(fmt.Sprintf("account with name %s was not found", name))
+	return GameAccount{}, fmt.Errorf("account with name %s was not found", name)
 }
 
 func (client *GfClient) addDefaultHeaders(headers http.Header) {

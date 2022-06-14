@@ -13,6 +13,35 @@ type GfAccountData struct {
 	Name     string
 }
 
+func TestEnsureBearer(t *testing.T) {
+	identity_manager, err := NewIdentityManager("identity.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity := identity_manager.Get()
+
+	gfclient := NewGfClient(
+		identity.Fingerprint.UserAgent,
+		"Chrome/C2.2.23.1813 (49c0acbee1)",
+		identity.Installation_id,
+	)
+
+	_, err = gfclient.GetGameAccounts()
+	if err == nil {
+		t.Error("get accounts call without bearer should return error")
+	}
+
+	_, err = gfclient.Codes(identity_manager, "", "")
+	if err == nil {
+		t.Error("codes call without bearer should return error")
+	}
+
+	err = gfclient.Iovation(identity_manager, "")
+	if err == nil {
+		t.Error("iovation call without bearer should return error")
+	}
+}
+
 func TestCodes(t *testing.T) {
 	content, err := ioutil.ReadFile("account.json")
 	if err != nil {
