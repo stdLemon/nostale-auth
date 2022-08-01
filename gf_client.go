@@ -15,7 +15,6 @@ type GfClient struct {
 	gf_user_agent   string
 	cef_user_agent  string
 	installation_id string
-	bearer          string
 	gf_headers      http.Header
 }
 
@@ -38,8 +37,8 @@ type CodesResponse struct {
 	Code    string
 }
 
-func NewGfClient(gf_user_agent, cef_user_agent, installation_id string) GfClient {
-	return GfClient{gf_user_agent: gf_user_agent,
+func NewGfClient(gf_user_agent, cef_user_agent, installation_id string) *GfClient {
+	return &GfClient{gf_user_agent: gf_user_agent,
 		cef_user_agent:  cef_user_agent,
 		installation_id: installation_id,
 		gf_headers: map[string][]string{
@@ -50,14 +49,7 @@ func NewGfClient(gf_user_agent, cef_user_agent, installation_id string) GfClient
 	}
 }
 
-func (client *GfClient) ensureBearer() error {
-	if client.bearer == "" {
-		return errors.New("bearer must be set")
-	}
-	return nil
-}
-
-func (client *GfClient) Auth(email, password, locale string) error {
+func (client *GfClient) Auth(email, password, locale string) (bearer string, err error) {
 	const url string = "https://spark.gameforge.com/api/v1/auth/sessions"
 
 	body, err := json.Marshal(map[string]string{
@@ -66,12 +58,12 @@ func (client *GfClient) Auth(email, password, locale string) error {
 		"locale":   locale,
 	})
 	if err != nil {
-		return err
+		return
 	}
 
 	request, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
-		return err
+		return
 	}
 
 	request.Header = map[string][]string{
@@ -82,32 +74,33 @@ func (client *GfClient) Auth(email, password, locale string) error {
 	http_client := new(http.Client)
 	resp, err := http_client.Do(request)
 	if err != nil {
-		return err
+		return
 	}
 
 	switch resp.StatusCode {
 	case http.StatusForbidden:
-		return errors.New("invalid account data")
+		return "", errors.New("invalid account data")
 	case http.StatusConflict:
-		return errors.New("captcha")
+		return "", errors.New("captcha")
 	}
 
 	if err = checkStatusCode(http.StatusCreated, resp.StatusCode); err != nil {
-		return err
+		return
 	}
 
 	var parsed_response AuthResponse
 	err = json.NewDecoder(resp.Body).Decode(&parsed_response)
 	if err != nil {
-		return err
+		return
 	}
 
 	if parsed_response.Token == "" {
-		return errors.New("server did not send token")
+		err = errors.New("server did not send token")
+		return
 	}
 
-	client.bearer = parsed_response.Token
-	return nil
+	bearer = parsed_response.Token
+	return
 }
 
 func checkStatusCode(expected, returned int) error {
@@ -120,12 +113,8 @@ func checkStatusCode(expected, returned int) error {
 	return nil
 }
 
-func (client *GfClient) GetGameAccounts() ([]GameAccount, error) {
+func (client *GfClient) GetGameAccounts(bearer string) ([]GameAccount, error) {
 	const url string = "https://spark.gameforge.com/api/v1/user/accounts"
-
-	if err := client.ensureBearer(); err != nil {
-		return nil, err
-	}
 
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -133,7 +122,7 @@ func (client *GfClient) GetGameAccounts() ([]GameAccount, error) {
 	}
 
 	request.Header = map[string][]string{
-		"Authorization": {fmt.Sprintf("Bearer %s", client.bearer)},
+		"Authorization": {fmt.Sprintf("Bearer %s", bearer)},
 	}
 	client.addDefaultHeaders(request.Header)
 
@@ -163,12 +152,8 @@ func (client *GfClient) GetGameAccounts() ([]GameAccount, error) {
 	return game_accounts, nil
 }
 
-func (client *GfClient) Iovation(identity_manager IdentityManager, account_id string) error {
+func (client *GfClient) Iovation(bearer string, identity_manager IdentityManager, account_id string) error {
 	const url string = "https://spark.gameforge.com/api/v1/auth/iovation"
-
-	if err := client.ensureBearer(); err != nil {
-		return err
-	}
 
 	blackbox, err := NewBlackbox(identity_manager, nil)
 	if err != nil {
@@ -191,7 +176,7 @@ func (client *GfClient) Iovation(identity_manager IdentityManager, account_id st
 
 	request.Header = map[string][]string{
 		"Content-Type":  {"application/json", "charset=UTF-8"},
-		"Authorization": {fmt.Sprintf("Bearer %s", client.bearer)},
+		"Authorization": {fmt.Sprintf("Bearer %s", bearer)},
 	}
 	client.addDefaultHeaders(request.Header)
 
@@ -220,12 +205,8 @@ func (client *GfClient) Iovation(identity_manager IdentityManager, account_id st
 	return nil
 }
 
-func (client *GfClient) Codes(identity_manager IdentityManager, account_id, game_id string) (string, error) {
+func (client *GfClient) Codes(bearer string, identity_manager IdentityManager, account_id, game_id string) (string, error) {
 	const url string = "https://spark.gameforge.com/api/v1/auth/thin/codes"
-
-	if err := client.ensureBearer(); err != nil {
-		return "", err
-	}
 
 	gs_id := generateGsid()
 	encrypted_blackbox, err := NewEncryptedBlackbox(identity_manager, gs_id, account_id, client.installation_id)
@@ -251,7 +232,7 @@ func (client *GfClient) Codes(identity_manager IdentityManager, account_id, game
 
 	request.Header = map[string][]string{
 		"tnt-installation-id": {client.installation_id},
-		"Authorization":       {fmt.Sprintf("Bearer %s", client.bearer)},
+		"Authorization":       {fmt.Sprintf("Bearer %s", bearer)},
 		"User-Agent":          {client.cef_user_agent},
 		"Content-Type":        {"application/json", "charset=UTF-8"},
 	}
