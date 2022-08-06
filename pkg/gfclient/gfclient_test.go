@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/stdLemon/nostale-auth/pkg/identityManager"
+	"github.com/stdLemon/nostale-auth/pkg/identitymgr"
 )
 
 type GfAccountData struct {
@@ -23,7 +23,7 @@ func TestCodes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	manager, err := identityManager.New("test/identity.json")
+	manager, err := identitymgr.New("test/identity.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,8 +39,8 @@ func TestCodes(t *testing.T) {
 		identity.InstallationId,
 	)
 
-	bearer, err := client.Auth(accountData.Email, accountData.Password, accountData.Locale)
-	if err != nil{
+	bearer, err := client.Login(accountData.Email, accountData.Password, accountData.Locale)
+	if err != nil {
 		t.Fatal(err)
 	}
 
