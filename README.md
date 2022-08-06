@@ -11,7 +11,7 @@ Library for obtaining code used in login packet (NoS0577)
     3. Timing *d* in blackbox is a sum of all other timings plus additional ms, only added value should be used in *timing.d* field
 
 5. Create and fill *account.json* basing on template `mv account_template.json account.json`
-6. Example code can be found in [gf_client_test.go](https://github.com/stdLemon/nostale-auth/blob/main/gf_client_test.go)
+6. Example code can be found in [gfclient_test.go](https://github.com/stdLemon/nostale-auth/blob/main/pkg/gfclient/gfclient_test.go)
 
 ## Timings example
 Assuming that three blackboxes with timings listed below were captured
