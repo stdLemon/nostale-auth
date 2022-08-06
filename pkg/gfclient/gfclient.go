@@ -107,6 +107,25 @@ func (c *Client) Login(email, password, locale string) (bearer string, err error
 	return
 }
 
+func (c *Client) Logout(bearer string) error {
+	const url string = "https://spark.gameforge.com/api/v1/auth/sessions"
+
+	r, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return err
+	}
+	r.Header = map[string][]string{
+		"Authorization": {fmt.Sprintf("Bearer %s", bearer)},
+	}
+	c.addDefaultHeaders(r.Header)
+	httpResp, err := c.httpClient.Do(r)
+	if err != nil {
+		return err
+
+	}
+	return checkStatusCode(http.StatusAccepted, httpResp.StatusCode)
+}
+
 func (c *Client) GetGameAccounts(bearer string) ([]GameAccount, error) {
 	const url string = "https://spark.gameforge.com/api/v1/user/accounts"
 
