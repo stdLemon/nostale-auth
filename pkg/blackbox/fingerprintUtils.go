@@ -1,4 +1,4 @@
-package gfclient_auth
+package blackbox
 
 import (
 	"encoding/base32"
@@ -19,15 +19,15 @@ func randomAscii() byte {
 }
 
 func randomString(n uint) string {
-	builder := strings.Builder{}
+	b := strings.Builder{}
 	for i := uint(0); i < n; i++ {
-		builder.WriteByte(randomAscii())
+		b.WriteByte(randomAscii())
 	}
 
-	return builder.String()
+	return b.String()
 }
 
-func getServerDate() (string, error) {
+func GetServerDate() (string, error) {
 	resp, err := http.Get(SERVER_FILE_GAME1_FILE)
 	if err != nil {
 		return "", err
@@ -41,33 +41,33 @@ func getServerDate() (string, error) {
 	return date.Format(time.RFC3339), nil
 }
 
-func createVector(content string, time int64) string {
+func CreateVector(content string, time int64) string {
 	return fmt.Sprintf("%v %v", content, time)
 }
 
-func generateVector() string {
+func GenerateVector() string {
 	content := randomString(VECTOR_CONTENT_LENGTH)
 	time := time.Now().UnixMilli()
 
-	return createVector(content, time)
+	return CreateVector(content, time)
 }
 
-func unpackVector(vector string) (string, string) {
-	delim_index := strings.LastIndexByte(vector, ' ')
-	content := vector[:delim_index]
-	time := vector[delim_index:]
+func UnpackVector(vector string) (string, string) {
+	i := strings.LastIndexByte(vector, ' ')
+	content := vector[:i]
+	time := vector[i:]
 	return content, time
 }
 
-func updateVector(vector *string) {
-	content, _ := unpackVector(*vector)
+func UpdateVector(vector *string) {
+	content, _ := UnpackVector(*vector)
 
-	new_content := content[1:] + string(randomAscii())
-	new_time := time.Now().UnixMilli()
-	*vector = createVector(new_content, new_time)
+	nContent := content[1:] + string(randomAscii())
+	nTime := time.Now().UnixMilli()
+	*vector = CreateVector(nContent, nTime)
 }
 
-func generateUuid() string {
+func GenerateUuid() string {
 	str := randomString(UUID_LENGTH)
 	return strings.ToLower(base32.StdEncoding.EncodeToString([]byte(str)))[:UUID_LENGTH]
 }
