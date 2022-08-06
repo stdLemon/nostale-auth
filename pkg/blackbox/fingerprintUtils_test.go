@@ -1,4 +1,4 @@
-package gfclient_auth
+package blackbox
 
 import (
 	"testing"
@@ -6,26 +6,26 @@ import (
 )
 
 func TestGenerateVector(t *testing.T) {
-	vector := generateVector()
-	content, _ := unpackVector(vector)
-	content_len := len(content)
+	vec := GenerateVector()
+	content, _ := UnpackVector(vec)
+	len := len(content)
 
-	if content_len != VECTOR_CONTENT_LENGTH {
-		t.Fatal("content length must be equal to", VECTOR_CONTENT_LENGTH, "got", content_len)
+	if len != VECTOR_CONTENT_LENGTH {
+		t.Fatal("content length must be equal to", VECTOR_CONTENT_LENGTH, "got", len)
 	}
 
-	t.Log(vector)
+	t.Log(vec)
 }
 
 func TestUpdateVector(t *testing.T) {
-	vector := generateVector()
-	content1, time1 := unpackVector(vector)
+	vec := GenerateVector()
+	content1, time1 := UnpackVector(vec)
 	time.Sleep(1 * time.Millisecond)
-	updateVector(&vector)
-	content2, time2 := unpackVector(vector)
+	UpdateVector(&vec)
+	content2, time2 := UnpackVector(vec)
 
 	if len(content2) != VECTOR_CONTENT_LENGTH {
-		t.Error("content length must be equal to", VECTOR_CONTENT_LENGTH, "got", len(vector))
+		t.Error("content length must be equal to", VECTOR_CONTENT_LENGTH, "got", len(vec))
 	}
 
 	if time1 == time2 {
@@ -42,11 +42,11 @@ func TestUpdateVector(t *testing.T) {
 }
 
 func TestGenerateUuid(t *testing.T) {
-	uuid := generateUuid()
-	uuid_len := len(uuid)
+	uuid := GenerateUuid()
+	len := len(uuid)
 
-	if uuid_len != UUID_LENGTH {
-		t.Error("length must be equal to", UUID_LENGTH, "got", uuid_len)
+	if len != UUID_LENGTH {
+		t.Error("length must be equal to", UUID_LENGTH, "got", len)
 	}
 
 	for _, c := range uuid {
@@ -59,7 +59,7 @@ func TestGenerateUuid(t *testing.T) {
 }
 
 func TestGetServerDate(t *testing.T) {
-	s, err := getServerDate()
+	s, err := GetServerDate()
 
 	if err != nil {
 		t.Fatal(err)
