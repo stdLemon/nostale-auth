@@ -20,7 +20,6 @@ type Fingerprint struct {
 	OsType         string
 	App            string
 	Vendor         string
-	Cookies        bool
 	Mem            float64
 	Con            float64
 	Lang           string
@@ -28,7 +27,6 @@ type Fingerprint struct {
 	Gpu            string
 	Fonts          string
 	AudioC         string
-	Analyser       string
 	Width          float64
 	Height         float64
 	Depth          float64
@@ -41,10 +39,6 @@ type Fingerprint struct {
 	AudioFP        float64
 	WebglFP        string
 	CanvasFP       float64
-	DP             float64
-	DF             float64
-	DW             float64
-	DC             float64
 	Creation       string
 	Uuid           string
 	D              float64
