@@ -13,38 +13,38 @@ type Request struct {
 }
 
 type Fingerprint struct {
-	V              float64
-	Tz             string
-	Dnt            bool
-	Product        string
-	OsType         string
-	App            string
-	Vendor         string
-	Mem            float64
-	Con            float64
-	Lang           string
-	Plugins        string
-	Gpu            string
-	Fonts          string
-	AudioC         string
-	Width          float64
-	Height         float64
-	Depth          float64
-	LStore         bool
-	SStore         bool
-	Video          string
-	Audio          string
-	Media          string
-	Permissions    string
-	AudioFP        float64
-	WebglFP        string
-	CanvasFP       float64
-	Creation       string
-	Uuid           string
-	D              float64
-	OsVersion      string
-	Vector         string
-	UserAgent      string
-	ServerTimeInMS string
-	Request        *Request
+	V              float64  `json:"v"`
+	Tz             string   `json:"tz"`
+	Dnt            bool     `json:"dnt"`
+	Product        string   `json:"product"`
+	OsType         string   `json:"osType"`
+	App            string   `json:"app"`
+	Vendor         string   `json:"vendor"`
+	Mem            float64  `json:"mem"`
+	Con            float64  `json:"con"`
+	Lang           string   `json:"lang"`
+	Plugins        string   `json:"plugins"`
+	Gpu            string   `json:"gpu"`
+	Fonts          string   `json:"fonts"`
+	AudioC         string   `json:"audioC"`
+	Width          float64  `json:"width"`
+	Height         float64  `json:"height"`
+	Depth          float64  `json:"depth"`
+	LStore         bool     `json:"lStore"`
+	SStore         bool     `json:"sStore"`
+	Video          string   `json:"video"`
+	Audio          string   `json:"audio"`
+	Media          string   `json:"media"`
+	Permissions    string   `json:"permissions"`
+	AudioFP        float64  `json:"audioFP"`
+	WebglFP        string   `json:"webglFP"`
+	CanvasFP       float64  `json:"canvasFP"`
+	Creation       string   `json:"creation"`
+	Uuid           string   `json:"uuid"`
+	D              float64  `json:"d"`
+	OsVersion      string   `json:"osVersion"`
+	Vector         string   `json:"vector"`
+	UserAgent      string   `json:"userAgent"`
+	ServerTimeInMS string   `json:"serverTimeInMS"`
+	Request        *Request `json:"request"`
 }

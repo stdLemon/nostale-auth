@@ -39,7 +39,7 @@ func TestCodes(t *testing.T) {
 		identity.InstallationId,
 	)
 
-	bearer, err := client.Login(accountData.Email, accountData.Password, accountData.Locale)
+	bearer, err := client.Login(accountData.Email, accountData.Password, accountData.Locale, manager)
 	if err != nil {
 		t.Fatal(err)
 	}

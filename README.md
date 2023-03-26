@@ -30,7 +30,7 @@ Assuming that three blackboxes with timings listed below were captured
 "d": 558
 ```
 
-### identity timings should look like this
+### Field timing in identity.json should look like this
 ```json
-"d": {"min": 548, "max": 558}
+"timing": {"min": 548, "max": 558}
 ```

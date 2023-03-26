@@ -52,19 +52,25 @@ func New(gfUserAgent, cefUserAgent, installationId string) *Client {
 	}
 }
 
-func (c *Client) Login(email, password, locale string) (bearer string, err error) {
+func (c *Client) Login(email, password, locale string, manager identitymgr.Manager) (bearer string, err error) {
 	const url string = "https://spark.gameforge.com/api/v1/auth/sessions"
+
+	blackbox, err := manager.NewBlackbox(nil)
+	if err != nil {
+		return "", err
+	}
 
 	body, err := json.Marshal(map[string]string{
 		"email":    email,
 		"password": password,
 		"locale":   locale,
+		"blackbox": blackbox.String(),
 	})
 	if err != nil {
 		return
 	}
 
-	request, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	request, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
 	if err != nil {
 		return
 	}
@@ -169,7 +175,7 @@ func (c *Client) Iovation(bearer string, manager identitymgr.Manager, accountId 
 
 	blackbox, err := manager.NewBlackbox(nil)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	body, err := json.Marshal(map[string]string{
@@ -181,7 +187,7 @@ func (c *Client) Iovation(bearer string, manager identitymgr.Manager, accountId 
 		return err
 	}
 
-	r, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	r, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
 	if err != nil {
 		return err
 	}
@@ -234,7 +240,7 @@ func (c *Client) Codes(bearer string, manager identitymgr.Manager, accountId, ga
 		return "", err
 	}
 
-	r, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	r, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
 	if err != nil {
 		return "", err
 

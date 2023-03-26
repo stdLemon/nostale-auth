@@ -13,14 +13,7 @@ function main() {
     const fingerprint = BlackboxEncoding.decode(blackbox)
 
     const identity = {
-        timing:
-        {
-            dP: {min: 0, max: 0}, // browser_info, platform_info, perms_media_audio timing
-            dF: {min: 0, max: 0}, // fonts timing
-            dW: {min: 0, max: 0}, // webgl timing
-            dC: {min: 0, max: 0}, // canvas timing
-            d: {min: 0, max: 0}, // sum of timings + few ms
-        },
+        timing: {min: 0, max: 0},
         fingerprint: {},
         installation_id: faker.datatype.uuid()
     }

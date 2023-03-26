@@ -62,7 +62,7 @@ func (m *Manager) CreateFingerprint() (blackbox.Fingerprint, error) {
 	f := i.Fingerprint
 	blackbox.UpdateVector(&f.Vector)
 
-	f.D = i.Timing.D.Random()
+	f.D = i.Timing.Random()
 
 	f.Creation = time.Now().UTC().Format(time.RFC3339)
 	f.Vector = base64.StdEncoding.EncodeToString([]byte(f.Vector))
