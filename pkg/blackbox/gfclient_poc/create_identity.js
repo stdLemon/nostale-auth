@@ -4,7 +4,7 @@ import {BlackboxEncoding} from "./blackbox_encoding.js"
 import {Blackbox} from "./blackbox.js"
 import {faker} from "@faker-js/faker"
 
-const IDENTITY_FIELDS = ['v', 'tz', "dnt", "product", 'osType', 'app', "vendor", "cookies", 'mem', 'con', "lang", "plugins", 'gpu', "fonts", "audioC", "analyser", 'width', 'height', "depth", 'lStore', "sStore", "video", "audio", "media", "permissions", 'audioFP', 'webglFP', "canvasFP", "osVersion", 'userAgent']
+const IDENTITY_FIELDS = ["v", "tz", "dnt", "product", "osType", "app", "vendor", "cookies", "mem", "con", "lang", "plugins", "gpu", "fonts", "audioC", "analyser", "width", "height", "depth", "video", "audio", "media", "permissions", "audioFP", "webglFP", "canvasFP", "osVersion", "userAgent"]
 
 function main() {
     const filename = process.argv[2]

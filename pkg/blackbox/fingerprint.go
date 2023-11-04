@@ -30,8 +30,6 @@ type Fingerprint struct {
 	Width          float64  `json:"width"`
 	Height         float64  `json:"height"`
 	Depth          float64  `json:"depth"`
-	LStore         bool     `json:"lStore"`
-	SStore         bool     `json:"sStore"`
 	Video          string   `json:"video"`
 	Audio          string   `json:"audio"`
 	Media          string   `json:"media"`
