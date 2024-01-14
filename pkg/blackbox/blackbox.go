@@ -12,33 +12,40 @@ import (
 type Blackbox string
 
 func New(fingerprint *Fingerprint) (Blackbox, error) {
-	fields := structs.Fields(fingerprint)
-	values := make([]interface{}, len(fields))
+	var (
+		fields = structs.Fields(fingerprint)
+		values = make([]interface{}, len(fields))
+	)
+
 	for i := range fields {
 		values[i] = fields[i].Value()
 	}
 
-	j, err := json.Marshal(values)
+	valuesJson, err := json.Marshal(values)
 	if err != nil {
 		return "", err
 	}
 
-	uri := url.QueryEscape(string(j))
-	r := strings.NewReplacer("+", "%20", "%29", ")", "%28", "(")
-	uri = r.Replace(uri)
+	encodedValues := url.QueryEscape(string(valuesJson))
+	encodedValues = strings.NewReplacer("+", "%20", "%29", ")", "%28", "(").Replace(encodedValues)
+	var (
+		encodedLen = len(encodedValues)
+		blackbox   = make([]byte, encodedLen)
+	)
 
-	blackbox := make([]byte, len(uri))
-	blackbox[0] = uri[0]
-	for i := 1; i < len(uri); i++ {
-		blackbox[i] = blackbox[i-1] + uri[i]
+	blackbox[0] = encodedValues[0]
+	for i := 1; i < encodedLen; i++ {
+		blackbox[i] = blackbox[i-1] + encodedValues[i]
 	}
 
 	return Blackbox("tra:" + base64.RawURLEncoding.EncodeToString(blackbox)), nil
 }
 
 func (b Blackbox) Encrypt(gsId, accountId string) []byte {
-	encrypted := xor([]byte(b), createKey(gsId, accountId))
-	encoded := make([]byte, base64.StdEncoding.EncodedLen(len(encrypted)))
+	var (
+		encrypted = xor([]byte(b), createKey(gsId, accountId))
+		encoded   = make([]byte, base64.StdEncoding.EncodedLen(len(encrypted)))
+	)
 
 	base64.StdEncoding.Encode(encoded, encrypted)
 	return encoded

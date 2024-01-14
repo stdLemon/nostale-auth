@@ -9,10 +9,6 @@ import (
 	"time"
 )
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 func randomAscii() byte {
 	s := rand.Intn('~'-' ') + ' '
 	return byte(s)
@@ -28,7 +24,7 @@ func randomString(n uint) string {
 }
 
 func GetServerDate() (string, error) {
-	resp, err := http.Get(SERVER_FILE_GAME1_FILE)
+	resp, err := http.Get(_gfAuthScriptUrl)
 	if err != nil {
 		return "", err
 	}
@@ -41,33 +37,32 @@ func GetServerDate() (string, error) {
 	return date.Format(time.RFC3339), nil
 }
 
-func CreateVector(content string, time int64) string {
-	return fmt.Sprintf("%v %v", content, time)
+func CreateVector(content string, at time.Time) string {
+	return fmt.Sprintf("%v %v", content, at.UnixMilli())
 }
 
-func GenerateVector() string {
-	content := randomString(VECTOR_CONTENT_LENGTH)
-	time := time.Now().UnixMilli()
-
-	return CreateVector(content, time)
+func RandomVector() string {
+	return CreateVector(randomString(_vectorContentLength), time.Now())
 }
 
 func UnpackVector(vector string) (string, string) {
 	i := strings.LastIndexByte(vector, ' ')
-	content := vector[:i]
-	time := vector[i:]
-	return content, time
+	return vector[:i], vector[i+1:]
 }
 
-func UpdateVector(vector *string) {
-	content, _ := UnpackVector(*vector)
+func UpdateVector(vector string) string {
+	return updateVector(vector, randomAscii(), time.Now())
+}
 
-	nContent := content[1:] + string(randomAscii())
-	nTime := time.Now().UnixMilli()
-	*vector = CreateVector(nContent, nTime)
+func updateVector(vector string, newCharacter byte, at time.Time) string {
+	var (
+		content, _ = UnpackVector(vector)
+		newContent = content[1:] + string(newCharacter)
+	)
+	return CreateVector(newContent, at)
 }
 
 func GenerateUuid() string {
-	str := randomString(UUID_LENGTH)
-	return strings.ToLower(base32.StdEncoding.EncodeToString([]byte(str)))[:UUID_LENGTH]
+	str := randomString(_uuidLength)
+	return strings.ToLower(base32.StdEncoding.EncodeToString([]byte(str)))[:_uuidLength]
 }

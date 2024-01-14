@@ -7,31 +7,28 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const RANDOM_TEXT_FILENAME = "test/random_text.txt"
 
 func TestEncryptBlackbox(t *testing.T) {
-	c, err := os.ReadFile(RANDOM_TEXT_FILENAME)
-	if err != nil {
-		t.Fatal(err)
-	}
+	content, err := os.ReadFile(RANDOM_TEXT_FILENAME)
+	require.NoError(t, err)
 
-	blackbox := Blackbox(c)
-	gsId := uuid.New().String()
-	accountId := uuid.New().String()
-	encBlackbox := blackbox.Encrypt(gsId, accountId)
+	var (
+		expectedEncryptedBlackbox bytes.Buffer
+		blackbox                  = Blackbox(content)
+		gsId                      = uuid.New().String()
+		accountId                 = uuid.New().String()
+		encryptedBlackbox         = blackbox.Encrypt(gsId, accountId)
+		cmd                       = exec.Command("gfclient_poc/encrypt_blackbox.js", RANDOM_TEXT_FILENAME, gsId, accountId)
+	)
 
-	var out bytes.Buffer
-	cmd := exec.Command("gfclient_poc/encrypt_blackbox.js", RANDOM_TEXT_FILENAME, gsId, accountId)
-	cmd.Stdout = &out
+	cmd.Stdout = &expectedEncryptedBlackbox
 	err = cmd.Run()
-	if err != nil {
-		t.Fatal(err)
-	}
-	expected := out.Bytes()
+	require.NoError(t, err)
 
-	if !bytes.Equal(encBlackbox, expected) {
-		t.Fatalf("blackbox was not encrypted correctly \ngot: %v\nexpected: %v\n", encBlackbox, expected)
-	}
+	assert.Equal(t, expectedEncryptedBlackbox.Bytes(), encryptedBlackbox)
 }
