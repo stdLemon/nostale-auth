@@ -1,9 +1,9 @@
 package blackbox
 
 const (
-	SERVER_FILE_GAME1_FILE = "https://gameforge.com/tra/game1.js"
-	VECTOR_CONTENT_LENGTH  = 100
-	UUID_LENGTH            = 27
+	_gfAuthScriptUrl     = "https://gameforge.com/tra/game1.js"
+	_vectorContentLength = 100
+	_uuidLength          = 27
 )
 
 type Request struct {

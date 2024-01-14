@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"maps"
 	"math/rand"
 	"net/http"
 
@@ -39,25 +41,50 @@ type CodesResponse struct {
 	Code    string
 }
 
+var (
+	errInvalidAccountData = errors.New("invalid account data")
+	errCaptchaRequired    = errors.New("captcha is required")
+	errTokenNotSent       = errors.New("server didn't sent a token")
+)
+
+func headerAuthorization(bearer string) http.Header {
+	return http.Header{
+		"Authorization": {fmt.Sprintf("Bearer %s", bearer)},
+	}
+}
+
+func headerJsonContentType() http.Header {
+	return http.Header{
+		"Content-Type": {"application/json", "charset=UTF-8"},
+	}
+}
+
+const (
+	_gameforgeSparkUrl = "https://spark.gameforge.com"
+	_apiV1BaseUrl      = _gameforgeSparkUrl + "/api/v1"
+	_sessionsEndpoint  = _apiV1BaseUrl + "/auth/sessions"
+	_accountsEndpoint  = _apiV1BaseUrl + "/user/accounts"
+	_iovationEndpoint  = _apiV1BaseUrl + "/auth/iovation"
+	_codesEndpoint     = _apiV1BaseUrl + "/auth/thin/codes"
+)
+
 func New(gfUserAgent, cefUserAgent, installationId string) *Client {
 	return &Client{gfUserAgent: gfUserAgent,
 		cefUserAgent:   cefUserAgent,
 		installationId: installationId,
 		httpClient:     new(http.Client),
 		gfHeaders: map[string][]string{
-			"TNT-Installation-Id": {installationId},
-			"Origin":              {"spark://www.gameforge.com"},
+			"Origin":              {_gameforgeSparkUrl},
+			"tnt-installation-id": {installationId},
 			"User-Agent":          {gfUserAgent},
 		},
 	}
 }
 
 func (c *Client) Login(email, password, locale string, manager identitymgr.Manager) (bearer string, err error) {
-	const url string = "https://spark.gameforge.com/api/v1/auth/sessions"
-
 	blackbox, err := manager.NewBlackbox(nil)
 	if err != nil {
-		return "", err
+		return
 	}
 
 	body, err := json.Marshal(map[string]string{
@@ -70,96 +97,49 @@ func (c *Client) Login(email, password, locale string, manager identitymgr.Manag
 		return
 	}
 
-	request, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
+	httpResp, err := c.makeRequest(http.MethodPost, _sessionsEndpoint, http.StatusCreated, bytes.NewBuffer(body), headerJsonContentType())
 	if err != nil {
-		return
-	}
+		switch httpResp.StatusCode {
+		case http.StatusForbidden:
+			err = errInvalidAccountData
+			return
+		case http.StatusConflict:
+			err = errCaptchaRequired
+			return
+		default:
+			return
+		}
 
-	request.Header = map[string][]string{
-		"Content-Type": {"application/json", "charset=UTF-8"},
-	}
-	c.addDefaultHeaders(request.Header)
-
-	resp, err := c.httpClient.Do(request)
-	if err != nil {
-		return
-	}
-
-	switch resp.StatusCode {
-	case http.StatusForbidden:
-		err = errors.New("invalid account data")
-		return
-	case http.StatusConflict:
-		err = errors.New("captcha")
-		return
-	}
-
-	if err = checkStatusCode(http.StatusCreated, resp.StatusCode); err != nil {
-		return
 	}
 
 	authResp := AuthResponse{}
-	err = json.NewDecoder(resp.Body).Decode(&authResp)
+	err = json.NewDecoder(httpResp.Body).Decode(&authResp)
 	if err != nil {
 		return
 	}
 
 	if authResp.Token == "" {
-		err = errors.New("server did not send token")
+		err = errTokenNotSent
 		return
 	}
 
-	bearer = authResp.Token
-	return
+	return authResp.Token, nil
 }
 
 func (c *Client) Logout(bearer string) error {
-	const url string = "https://spark.gameforge.com/api/v1/auth/sessions"
-
-	r, err := http.NewRequest("DELETE", url, nil)
-	if err != nil {
-		return err
-	}
-	r.Header = map[string][]string{
-		"Authorization": {fmt.Sprintf("Bearer %s", bearer)},
-	}
-	c.addDefaultHeaders(r.Header)
-	httpResp, err := c.httpClient.Do(r)
-	if err != nil {
-		return err
-
-	}
-	return checkStatusCode(http.StatusAccepted, httpResp.StatusCode)
+	_, err := c.makeRequest(http.MethodDelete, _sessionsEndpoint, http.StatusAccepted, nil, headerAuthorization(bearer))
+	return err
 }
 
 func (c *Client) GetGameAccounts(bearer string) ([]GameAccount, error) {
-	const url string = "https://spark.gameforge.com/api/v1/user/accounts"
-
-	r, err := http.NewRequest("GET", url, nil)
+	httpResp, err := c.makeRequest(http.MethodGet, _accountsEndpoint, http.StatusOK, nil, headerAuthorization(bearer))
 	if err != nil {
-		return nil, err
-	}
-
-	r.Header = map[string][]string{
-		"Authorization": {fmt.Sprintf("Bearer %s", bearer)},
-	}
-	c.addDefaultHeaders(r.Header)
-
-	httpResp, err := c.httpClient.Do(r)
-	if err != nil {
-		return nil, err
-
-	}
-
-	if err = checkStatusCode(http.StatusOK, httpResp.StatusCode); err != nil {
 		return nil, err
 	}
 
 	resp := make(map[string]GameAccount)
-	err = json.NewDecoder(httpResp.Body).Decode(&resp)
-	if err != nil {
+	if err := json.NewDecoder(httpResp.Body).Decode(&resp); err != nil {
 		return nil, err
-
 	}
 
 	accs := make([]GameAccount, 0, len(resp))
@@ -171,8 +151,6 @@ func (c *Client) GetGameAccounts(bearer string) ([]GameAccount, error) {
 }
 
 func (c *Client) Iovation(bearer string, manager identitymgr.Manager, accountId string) error {
-	const url string = "https://spark.gameforge.com/api/v1/auth/iovation"
-
 	blackbox, err := manager.NewBlackbox(nil)
 	if err != nil {
 		return err
@@ -187,29 +165,16 @@ func (c *Client) Iovation(bearer string, manager identitymgr.Manager, accountId 
 		return err
 	}
 
-	r, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
+	header := headerJsonContentType()
+	maps.Copy(header, headerAuthorization(bearer))
+
+	httpResp, err := c.makeRequest(http.MethodPost, _iovationEndpoint, http.StatusOK, bytes.NewBuffer(body), header)
 	if err != nil {
-		return err
-	}
-
-	r.Header = map[string][]string{
-		"Content-Type":  {"application/json", "charset=UTF-8"},
-		"Authorization": {fmt.Sprintf("Bearer %s", bearer)},
-	}
-	c.addDefaultHeaders(r.Header)
-
-	httpResp, err := c.httpClient.Do(r)
-	if err != nil {
-		return err
-	}
-
-	if err = checkStatusCode(http.StatusOK, httpResp.StatusCode); err != nil {
 		return err
 	}
 
 	resp := new(IovationResponse)
-	err = json.NewDecoder(httpResp.Body).Decode(resp)
-	if err != nil {
+	if err := json.NewDecoder(httpResp.Body).Decode(resp); err != nil {
 		return err
 
 	}
@@ -222,13 +187,17 @@ func (c *Client) Iovation(bearer string, manager identitymgr.Manager, accountId 
 }
 
 func (c *Client) Codes(bearer string, manager identitymgr.Manager, accountId, gameId string) (string, error) {
-	const url string = "https://spark.gameforge.com/api/v1/auth/thin/codes"
-
 	gsId := generateGsid()
 	encBlackbox, err := manager.NewEncryptedBlackbox(gsId, accountId)
 	if err != nil {
 		return "", nil
 	}
+
+	header := http.Header{
+		"User-Agent": {c.cefUserAgent},
+	}
+	maps.Copy(header, headerJsonContentType())
+	maps.Copy(header, headerAuthorization(bearer))
 
 	body, err := json.Marshal(map[string]string{
 		"blackbox":              string(encBlackbox),
@@ -240,31 +209,12 @@ func (c *Client) Codes(bearer string, manager identitymgr.Manager, accountId, ga
 		return "", err
 	}
 
-	r, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body))
-	if err != nil {
-		return "", err
-
-	}
-
-	r.Header = map[string][]string{
-		"tnt-installation-id": {c.installationId},
-		"Authorization":       {fmt.Sprintf("Bearer %s", bearer)},
-		"User-Agent":          {c.cefUserAgent},
-		"Content-Type":        {"application/json", "charset=UTF-8"},
-	}
-
-	httpResp, err := c.httpClient.Do(r)
+	httpResp, err := c.makeRequest(http.MethodPost, _codesEndpoint, http.StatusCreated, bytes.NewBuffer(body), header)
 	if err != nil {
 		return "", err
 	}
-
 	resp := new(CodesResponse)
-	err = json.NewDecoder(httpResp.Body).Decode(resp)
-	if err != nil {
-		return "", err
-	}
-
-	if err = checkStatusCode(http.StatusCreated, httpResp.StatusCode); err != nil {
+	if err := json.NewDecoder(httpResp.Body).Decode(resp); err != nil {
 		return "", err
 	}
 
@@ -279,29 +229,38 @@ func (c *Client) Codes(bearer string, manager identitymgr.Manager, accountId, ga
 	return resp.Code, nil
 }
 
-func FindGameAccount(name string, accounts []GameAccount) (GameAccount, error) {
+func FindGameAccount(name string, accounts []GameAccount) (GameAccount, bool) {
 	for _, acc := range accounts {
 		if acc.DisplayName == name {
-			return acc, nil
+			return acc, true
 		}
 	}
-	return GameAccount{}, fmt.Errorf("account with name %s was not found", name)
+	return GameAccount{}, false
 }
 
-func (c *Client) addDefaultHeaders(headers http.Header) {
-	for k, v := range c.gfHeaders {
-		headers[k] = v
+func (c Client) makeRequest(method, endpoint string, expectedStatusCode int, body io.Reader, header http.Header) (*http.Response, error) {
+	request, err := http.NewRequest(method, endpoint, body)
+	if err != nil {
+		return nil, err
 	}
-}
 
-func checkStatusCode(expected, returned int) error {
-	if expected != returned {
-		return fmt.Errorf("got unexpected status code expected %s, got %s",
-			http.StatusText(expected),
-			http.StatusText(returned),
+	request.Header = c.gfHeaders.Clone()
+	maps.Copy(request.Header, header)
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, err
+
+	}
+
+	if expectedStatusCode != response.StatusCode {
+		return response, fmt.Errorf("got unexpected status code expected %s, got %s",
+			http.StatusText(expectedStatusCode),
+			http.StatusText(response.StatusCode),
 		)
 	}
-	return nil
+
+	return response, nil
 }
 
 func generateGsid() string {

@@ -6,8 +6,10 @@ import (
 )
 
 func xor(data []byte, key []byte) []byte {
-	l := len(key)
-	result := make([]byte, len(data))
+	var (
+		l      = len(key)
+		result = make([]byte, len(data))
+	)
 
 	for i := range data {
 		iMod := i % l
@@ -18,8 +20,10 @@ func xor(data []byte, key []byte) []byte {
 }
 
 func createKey(gsId, accountId string) []byte {
-	v := fmt.Sprintf("%s-%s", gsId, accountId)
-	h := sha512.Sum512([]byte(v))
+	var (
+		key     = fmt.Sprintf("%s-%s", gsId, accountId)
+		keyHash = sha512.Sum512([]byte(key))
+	)
 
-	return []byte(fmt.Sprintf("%x", h))
+	return []byte(fmt.Sprintf("%x", keyHash))
 }
