@@ -35,7 +35,7 @@ func TestCodes(t *testing.T) {
 
 	client := New(
 		identity.Fingerprint.UserAgent,
-		"Chrome/C2.2.27.1832 (49ca0c3b3a)",
+		"Chrome/C2.5.0.1857 (49a6fac338)",
 		identity.InstallationId,
 	)
 
