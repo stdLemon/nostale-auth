@@ -2,6 +2,7 @@ package gfClient
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,8 +44,9 @@ type CodesResponse struct {
 
 var (
 	errInvalidAccountData = errors.New("invalid account data")
+	errEmptyClientVersion = errors.New("server didn't send a client version")
 	errCaptchaRequired    = errors.New("captcha is required")
-	errTokenNotSent       = errors.New("server didn't sent a token")
+	errTokenNotSent       = errors.New("server didn't send a token")
 )
 
 func headerAuthorization(bearer string) http.Header {
@@ -60,17 +62,17 @@ func headerJsonContentType() http.Header {
 }
 
 const (
-	_gameforgeSparkUrl = "https://spark.gameforge.com"
-	_apiV1BaseUrl      = _gameforgeSparkUrl + "/api/v1"
-	_sessionsEndpoint  = _apiV1BaseUrl + "/auth/sessions"
-	_accountsEndpoint  = _apiV1BaseUrl + "/user/accounts"
-	_iovationEndpoint  = _apiV1BaseUrl + "/auth/iovation"
-	_codesEndpoint     = _apiV1BaseUrl + "/auth/thin/codes"
+	_clientVersionEndpoint = "http://dl.tnt.gameforge.com/tnt/final-ms3/clientversioninfo.json"
+	_gameforgeSparkUrl     = "https://spark.gameforge.com"
+	_apiV1BaseUrl          = _gameforgeSparkUrl + "/api/v1"
+	_sessionsEndpoint      = _apiV1BaseUrl + "/auth/sessions"
+	_accountsEndpoint      = _apiV1BaseUrl + "/user/accounts"
+	_iovationEndpoint      = _apiV1BaseUrl + "/auth/iovation"
+	_codesEndpoint         = _apiV1BaseUrl + "/auth/thin/codes"
 )
 
-func New(gfUserAgent, cefUserAgent, installationId string) *Client {
+func New(gfUserAgent, installationId string) *Client {
 	return &Client{gfUserAgent: gfUserAgent,
-		cefUserAgent:   cefUserAgent,
 		installationId: installationId,
 		httpClient:     new(http.Client),
 		gfHeaders: map[string][]string{
@@ -79,6 +81,15 @@ func New(gfUserAgent, cefUserAgent, installationId string) *Client {
 			"User-Agent":          {gfUserAgent},
 		},
 	}
+}
+
+func (c *Client) Init() error {
+	userAgent, err := c.generateCefUserAgent()
+	if err != nil {
+		return nil
+	}
+	c.cefUserAgent = userAgent
+	return nil
 }
 
 func (c *Client) Login(email, password, locale string, manager identitymgr.Manager) (bearer string, err error) {
@@ -236,6 +247,37 @@ func FindGameAccount(name string, accounts []GameAccount) (GameAccount, bool) {
 		}
 	}
 	return GameAccount{}, false
+}
+
+// lazy user agenet generation
+// other than the launcher implementation
+func (c Client) generateCefUserAgent() (string, error) {
+	clientVersion, err := c.getVersion()
+	if err != nil {
+		return "", err
+	}
+
+	instalationHash := fmt.Sprintf("%x", sha256.Sum256([]byte(c.installationId)))
+	return fmt.Sprintf("Chrome/C%s (%s%s)", clientVersion, c.installationId[:2], instalationHash[:8]), nil
+}
+
+func (c Client) getVersion() (string, error) {
+	httpResp, err := c.makeRequest(http.MethodGet, _clientVersionEndpoint, http.StatusOK, nil, nil)
+	if err != nil {
+		return "", err
+	}
+
+	respJson := make(map[string]interface{})
+	if err := json.NewDecoder(httpResp.Body).Decode(&respJson); err != nil {
+		return "", err
+	}
+
+	clientVersion, ok := respJson["version"]
+	if !ok {
+		return "", errEmptyClientVersion
+	}
+
+	return clientVersion.(string), nil
 }
 
 func (c Client) makeRequest(method, endpoint string, expectedStatusCode int, body io.Reader, header http.Header) (*http.Response, error) {

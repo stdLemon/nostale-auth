@@ -31,9 +31,9 @@ func TestCodes(t *testing.T) {
 	identity := manager.Get()
 	client := New(
 		identity.Fingerprint.UserAgent,
-		"Chrome/C2.5.0.1857 (49a6fac338)",
 		identity.InstallationId,
 	)
+	require.NoError(t, client.Init())
 
 	bearer, err := client.Login(accountData.Email, accountData.Password, accountData.Locale, manager)
 	require.NoError(t, err)
@@ -50,6 +50,8 @@ func TestCodes(t *testing.T) {
 
 	code, err := client.Codes(bearer, manager, account.Id, account.GameId)
 	require.NoError(t, err)
+
+	require.NoError(t, client.Logout(bearer))
 	manager.Save()
 
 	t.Log("code", code)
