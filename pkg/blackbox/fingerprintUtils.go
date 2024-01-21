@@ -14,9 +14,10 @@ func randomAscii() byte {
 	return byte(s)
 }
 
-func randomString(n uint) string {
+func randomString(n int) string {
 	b := strings.Builder{}
-	for i := uint(0); i < n; i++ {
+	b.Grow(n)
+	for i := 0; i < n; i++ {
 		b.WriteByte(randomAscii())
 	}
 
