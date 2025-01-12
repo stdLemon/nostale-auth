@@ -2,14 +2,18 @@ package gfClient
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"maps"
 	"math/rand"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/stdLemon/nostale-auth/pkg/identitymgr"
@@ -57,7 +61,13 @@ func headerAuthorization(bearer string) http.Header {
 
 func headerJsonContentType() http.Header {
 	return http.Header{
-		"Content-Type": {"application/json", "charset=UTF-8"},
+		"Content-Type": {"application/json"},
+	}
+}
+
+func headerOrigin() http.Header {
+	return http.Header{
+		"Origin": {"spark://www.gameforge.com"},
 	}
 }
 
@@ -76,20 +86,10 @@ func New(gfUserAgent, installationId string) *Client {
 		installationId: installationId,
 		httpClient:     new(http.Client),
 		gfHeaders: map[string][]string{
-			"Origin":              {_gameforgeSparkUrl},
 			"tnt-installation-id": {installationId},
 			"User-Agent":          {gfUserAgent},
 		},
 	}
-}
-
-func (c *Client) Init() error {
-	userAgent, err := c.generateCefUserAgent()
-	if err != nil {
-		return nil
-	}
-	c.cefUserAgent = userAgent
-	return nil
 }
 
 func (c *Client) Login(email, password, locale string, manager identitymgr.Manager) (bearer string, err error) {
@@ -108,7 +108,10 @@ func (c *Client) Login(email, password, locale string, manager identitymgr.Manag
 		return
 	}
 
-	httpResp, err := c.makeRequest(http.MethodPost, _sessionsEndpoint, http.StatusCreated, bytes.NewBuffer(body), headerJsonContentType())
+	header := headerOrigin()
+	maps.Copy(header, headerJsonContentType())
+
+	httpResp, err := c.makeRequest(http.MethodPost, _sessionsEndpoint, http.StatusCreated, bytes.NewBuffer(body), header)
 	if err != nil {
 		switch httpResp.StatusCode {
 		case http.StatusForbidden:
@@ -143,7 +146,10 @@ func (c *Client) Logout(bearer string) error {
 }
 
 func (c *Client) GetGameAccounts(bearer string) ([]GameAccount, error) {
-	httpResp, err := c.makeRequest(http.MethodGet, _accountsEndpoint, http.StatusOK, nil, headerAuthorization(bearer))
+	header := headerOrigin()
+	maps.Copy(header, headerAuthorization(bearer))
+
+	httpResp, err := c.makeRequest(http.MethodGet, _accountsEndpoint, http.StatusOK, nil, header)
 	if err != nil {
 		return nil, err
 	}
@@ -177,6 +183,7 @@ func (c *Client) Iovation(bearer string, manager identitymgr.Manager, accountId 
 	}
 
 	header := headerJsonContentType()
+	maps.Copy(header, headerOrigin())
 	maps.Copy(header, headerAuthorization(bearer))
 
 	httpResp, err := c.makeRequest(http.MethodPost, _iovationEndpoint, http.StatusOK, bytes.NewBuffer(body), header)
@@ -204,8 +211,13 @@ func (c *Client) Codes(bearer string, manager identitymgr.Manager, accountId, ga
 		return "", nil
 	}
 
+	ua, err := c.getCefUserAgent(accountId)
+	if err != nil {
+		return "", err
+	}
+
 	header := http.Header{
-		"User-Agent": {c.cefUserAgent},
+		"User-Agent": {ua},
 	}
 	maps.Copy(header, headerJsonContentType())
 	maps.Copy(header, headerAuthorization(bearer))
@@ -249,16 +261,68 @@ func FindGameAccount(name string, accounts []GameAccount) (GameAccount, bool) {
 	return GameAccount{}, false
 }
 
-// lazy user agenet generation
-// other than the launcher implementation
-func (c Client) generateCefUserAgent() (string, error) {
-	clientVersion, err := c.getVersion()
+func (c *Client) getCefUserAgent(accountId string) (string, error) {
+	if c.cefUserAgent != "" {
+		return c.cefUserAgent, nil
+	}
+
+	v, err := c.getVersion()
 	if err != nil {
 		return "", err
 	}
+	return c.createCefUserAgent(accountId, v), nil
+}
 
-	instalationHash := fmt.Sprintf("%x", sha256.Sum256([]byte(c.installationId)))
-	return fmt.Sprintf("Chrome/C%s (%s%s)", clientVersion, c.installationId[:2], instalationHash[:8]), nil
+func (c *Client) calcCefUserAgentChecksum(accountId, clientVersion string) string {
+	const (
+		certSha256 = "99025da70af1ef39d2acd049018887ef5140daebc6f11d80461bcf8d02f2d36b"
+		certSha1   = "d68f9401f15791cc396d4d6af3b977bc58ad0002"
+	)
+
+	hashChain := func(hashers []hash.Hash, certHash string) string {
+		var (
+			sb     strings.Builder
+			inputs = []string{"C" + clientVersion, c.installationId, accountId}
+		)
+
+		sb.WriteString(certHash)
+		for i, data := range inputs {
+			h := hashers[i]
+			h.Write([]byte(data))
+			e := hex.EncodeToString(h.Sum(nil))
+			sb.WriteString(e)
+		}
+
+		return fmt.Sprintf("%x", sha256.Sum256([]byte(sb.String())))
+	}
+
+	var firstDigit rune
+	// accountId contains only ASCII characters
+	for _, r := range c.installationId {
+		if r >= '0' && r <= '9' {
+			firstDigit = r
+			break
+		}
+	}
+
+	var (
+		evenHashers = []hash.Hash{sha1.New(), sha256.New(), sha1.New()}
+		oddHashers  = []hash.Hash{sha256.New(), sha1.New(), sha256.New()}
+	)
+
+	if (firstDigit-'0')%2 == 0 {
+		h := hashChain(evenHashers, certSha256)
+		return strings.Clone(h[:8])
+
+	}
+
+	h := hashChain(oddHashers, certSha1)
+	return strings.Clone(h[len(h)-8:])
+}
+
+func (c *Client) createCefUserAgent(accountId, clientVersion string) string {
+	h := c.calcCefUserAgentChecksum(accountId, clientVersion)
+	return fmt.Sprintf("Chrome/C%s (%s%s)", clientVersion, accountId[:2], h)
 }
 
 func (c Client) getVersion() (string, error) {
