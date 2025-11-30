@@ -4,8 +4,20 @@
     "type": "module",
     "main": "nostale_poc.js",
     "license": "MIT",
+    "prettier": {
+        "semi": true,
+        "singleQuote": false,
+        "printWidth": 120,
+        "tabWidth": 4
+    },
+    "scripts": {
+        "format": "prettier --write ."
+    },
     "dependencies": {
         "@faker-js/faker": "^6.1.2",
         "axios": "^0.26.1"
+    },
+    "devDependencies": {
+        "prettier": "^3.7.3"
     }
 }

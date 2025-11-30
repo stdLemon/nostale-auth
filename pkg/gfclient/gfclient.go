@@ -33,6 +33,11 @@ type GameAccount struct {
 	GameId      string
 }
 
+type AuthErrorResponse struct {
+	Message    string
+	errorTypes []string
+}
+
 type AuthResponse struct {
 	Token string
 }
@@ -47,9 +52,7 @@ type CodesResponse struct {
 }
 
 var (
-	errInvalidAccountData = errors.New("invalid account data")
 	errEmptyClientVersion = errors.New("server didn't send a client version")
-	errCaptchaRequired    = errors.New("captcha is required")
 	errTokenNotSent       = errors.New("server didn't send a token")
 )
 
@@ -75,10 +78,15 @@ const (
 	_clientVersionEndpoint = "http://dl.tnt.gameforge.com/tnt/final-ms3/clientversioninfo.json"
 	_gameforgeSparkUrl     = "https://spark.gameforge.com"
 	_apiV1BaseUrl          = _gameforgeSparkUrl + "/api/v1"
-	_sessionsEndpoint      = _apiV1BaseUrl + "/auth/sessions"
+	_authSessionsEndpoint  = _apiV1BaseUrl + "/auth/sessions"
 	_accountsEndpoint      = _apiV1BaseUrl + "/user/accounts"
 	_iovationEndpoint      = _apiV1BaseUrl + "/auth/iovation"
 	_codesEndpoint         = _apiV1BaseUrl + "/auth/thin/codes"
+)
+
+const (
+	_apiV2BaseUrl                  = _gameforgeSparkUrl + "/api/v2"
+	_authProvidersSessionsEndpoint = _apiV2BaseUrl + "/authProviders/credentials/sessions"
 )
 
 func New(gfUserAgent, installationId string) *Client {
@@ -111,19 +119,14 @@ func (c *Client) Login(email, password, locale string, manager identitymgr.Manag
 	header := headerOrigin()
 	maps.Copy(header, headerJsonContentType())
 
-	httpResp, err := c.makeRequest(http.MethodPost, _sessionsEndpoint, http.StatusCreated, bytes.NewBuffer(body), header)
+	httpResp, err := c.makeRequest(http.MethodPost, _authProvidersSessionsEndpoint, http.StatusCreated, bytes.NewBuffer(body), header)
 	if err != nil {
-		switch httpResp.StatusCode {
-		case http.StatusForbidden:
-			err = errInvalidAccountData
-			return
-		case http.StatusConflict:
-			err = errCaptchaRequired
-			return
-		default:
+		errResp := AuthErrorResponse{}
+		err = json.NewDecoder(httpResp.Body).Decode(&errResp)
+		if err != nil {
 			return
 		}
-
+		return "", fmt.Errorf("login failed: %s", errResp.Message)
 	}
 
 	authResp := AuthResponse{}
@@ -141,7 +144,7 @@ func (c *Client) Login(email, password, locale string, manager identitymgr.Manag
 }
 
 func (c *Client) Logout(bearer string) error {
-	_, err := c.makeRequest(http.MethodDelete, _sessionsEndpoint, http.StatusAccepted, nil, headerAuthorization(bearer))
+	_, err := c.makeRequest(http.MethodDelete, _authSessionsEndpoint, http.StatusAccepted, nil, headerAuthorization(bearer))
 	return err
 }
 
@@ -296,11 +299,11 @@ func (c *Client) calcCefUserAgentChecksum(accountId, clientVersion string) strin
 		return fmt.Sprintf("%x", sha256.Sum256([]byte(sb.String())))
 	}
 
-	var firstDigit rune
+	var firstDigit byte
 	// accountId contains only ASCII characters
 	for _, r := range c.installationId {
 		if r >= '0' && r <= '9' {
-			firstDigit = r
+			firstDigit = byte(r)
 			break
 		}
 	}
@@ -310,7 +313,7 @@ func (c *Client) calcCefUserAgentChecksum(accountId, clientVersion string) strin
 		oddHashers  = []hash.Hash{sha256.New(), sha1.New(), sha256.New()}
 	)
 
-	if (firstDigit-'0')%2 == 0 {
+	if firstDigit == 0 || (firstDigit-'0')%2 == 0 {
 		h := hashChain(evenHashers, certSha256)
 		return strings.Clone(h[:8])
 

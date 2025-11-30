@@ -15,8 +15,6 @@ type Request struct {
 type Fingerprint struct {
 	V              float64  `json:"v"`
 	Tz             string   `json:"tz"`
-	Dnt            bool     `json:"dnt"`
-	Product        string   `json:"product"`
 	OsType         string   `json:"osType"`
 	App            string   `json:"app"`
 	Vendor         string   `json:"vendor"`
@@ -29,7 +27,6 @@ type Fingerprint struct {
 	AudioC         string   `json:"audioC"`
 	Width          float64  `json:"width"`
 	Height         float64  `json:"height"`
-	Depth          float64  `json:"depth"`
 	Video          string   `json:"video"`
 	Audio          string   `json:"audio"`
 	Media          string   `json:"media"`

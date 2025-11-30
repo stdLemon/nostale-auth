@@ -1,0 +1,66 @@
+lockfileVersion: "9.0"
+
+settings:
+    autoInstallPeers: true
+    excludeLinksFromLockfile: false
+
+importers:
+    .:
+        dependencies:
+            "@faker-js/faker":
+                specifier: ^6.1.2
+                version: 6.3.1
+            axios:
+                specifier: ^0.26.1
+                version: 0.26.1
+        devDependencies:
+            prettier:
+                specifier: ^3.7.3
+                version: 3.7.3
+
+packages:
+    "@faker-js/faker@6.3.1":
+        resolution:
+            {
+                integrity: sha512-8YXBE2ZcU/pImVOHX7MWrSR/X5up7t6rPWZlk34RwZEcdr3ua6X+32pSd6XuOQRN+vbuvYNfA6iey8NbrjuMFQ==,
+            }
+        engines: { node: ">=14.0.0", npm: ">=6.0.0" }
+
+    axios@0.26.1:
+        resolution:
+            {
+                integrity: sha512-fPwcX4EvnSHuInCMItEhAGnaSEXRBjtzh9fOtsE6E1G6p7vl7edEeZe11QHf18+6+9gR5PbKV/sGKNaD8YaMeA==,
+            }
+
+    follow-redirects@1.15.11:
+        resolution:
+            {
+                integrity: sha512-deG2P0JfjrTxl50XGCDyfI97ZGVCxIpfKYmfyrQ54n5FO/0gfIES8C/Psl6kWVDolizcaaxZJnTS0QSMxvnsBQ==,
+            }
+        engines: { node: ">=4.0" }
+        peerDependencies:
+            debug: "*"
+        peerDependenciesMeta:
+            debug:
+                optional: true
+
+    prettier@3.7.3:
+        resolution:
+            {
+                integrity: sha512-QgODejq9K3OzoBbuyobZlUhznP5SKwPqp+6Q6xw6o8gnhr4O85L2U915iM2IDcfF2NPXVaM9zlo9tdwipnYwzg==,
+            }
+        engines: { node: ">=14" }
+        hasBin: true
+
+snapshots:
+    "@faker-js/faker@6.3.1": {}
+
+    axios@0.26.1:
+        dependencies:
+            follow-redirects: 1.15.11
+        transitivePeerDependencies:
+            - debug
+
+    follow-redirects@1.15.11: {}
+
+    prettier@3.7.3: {}
