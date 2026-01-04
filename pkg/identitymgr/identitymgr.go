@@ -53,17 +53,17 @@ func (m Manager) createFingerprint(r *blackbox.Request) (blackbox.Fingerprint, e
 		fingerprint = m.identity.Fingerprint
 	)
 
-	fingerprint.ServerTimeInMS, err = blackbox.GetServerDate()
+	fingerprint.ServerDateISO, err = blackbox.GetServerDate()
 	if err != nil {
 		return blackbox.Fingerprint{}, err
 	}
 
-	m.identity.Fingerprint.Vector = blackbox.UpdateVector(fingerprint.Vector)
+	m.identity.Fingerprint.VecSignatureBase64 = blackbox.UpdateVector(fingerprint.VecSignatureBase64)
 
-	fingerprint.Request = r
-	fingerprint.D = m.identity.Timing.Random()
-	fingerprint.Creation = time.Now().UTC().Format(time.RFC3339)
-	fingerprint.Vector = base64.StdEncoding.EncodeToString([]byte(fingerprint.Vector))
+	fingerprint.ExtraPayload = r
+	fingerprint.CollectionDurationMs = m.identity.Timing.Random()
+	fingerprint.GeneratedAtISO = time.Now().UTC().Format(time.RFC3339)
+	fingerprint.VecSignatureBase64 = base64.StdEncoding.EncodeToString([]byte(fingerprint.VecSignatureBase64))
 	return fingerprint, nil
 }
 

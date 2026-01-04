@@ -1,4 +1,4 @@
-package gfClient
+package gfclient
 
 import (
 	"encoding/json"
@@ -86,7 +86,7 @@ func TestCodes(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, client.Logout(bearer))
-	manager.Save()
+	require.NoError(t, manager.Save())
 
 	t.Log("code", code)
 }

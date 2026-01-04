@@ -7,9 +7,6 @@ settings:
 importers:
     .:
         dependencies:
-            "@faker-js/faker":
-                specifier: ^6.1.2
-                version: 6.3.1
             axios:
                 specifier: ^0.26.1
                 version: 0.26.1
@@ -19,13 +16,6 @@ importers:
                 version: 3.7.3
 
 packages:
-    "@faker-js/faker@6.3.1":
-        resolution:
-            {
-                integrity: sha512-8YXBE2ZcU/pImVOHX7MWrSR/X5up7t6rPWZlk34RwZEcdr3ua6X+32pSd6XuOQRN+vbuvYNfA6iey8NbrjuMFQ==,
-            }
-        engines: { node: ">=14.0.0", npm: ">=6.0.0" }
-
     axios@0.26.1:
         resolution:
             {
@@ -53,8 +43,6 @@ packages:
         hasBin: true
 
 snapshots:
-    "@faker-js/faker@6.3.1": {}
-
     axios@0.26.1:
         dependencies:
             follow-redirects: 1.15.11

@@ -1,36 +1,6 @@
-const BLACKBOX_FIELDS = [
-    "v",
-    "tz",
-    "osType",
-    "app",
-    "vendor",
-    "mem",
-    "con",
-    "lang",
-    "plugins",
-    "gpu",
-    "fonts",
-    "audioC",
-    "width",
-    "height",
-    "video",
-    "audio",
-    "media",
-    "permissions",
-    "audioFP",
-    "webglFP",
-    "canvasFP",
-    "creation",
-    "uuid",
-    "d",
-    "osVersion",
-    "vector",
-    "userAgent",
-    "serverTimeInMS",
-    "request",
-];
+import { BLACKBOX_FIELDS } from "./blackbox_fields.js";
 
-const BLACKBOX_VERSION = 11;
+const BLACKBOX_VERSION = 12;
 
 function encode(fingerprint) {
     const fingerprint_array = [];

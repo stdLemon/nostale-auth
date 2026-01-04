@@ -1,4 +1,4 @@
-package gfClient
+package gfclient
 
 import (
 	"bytes"
@@ -51,6 +51,13 @@ type CodesResponse struct {
 	Code    string
 }
 
+type loginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Locale   string `json:"locale"`
+	Blackbox string `json:"blackbox"`
+}
+
 var (
 	errEmptyClientVersion = errors.New("server didn't send a client version")
 	errTokenNotSent       = errors.New("server didn't send a token")
@@ -100,20 +107,20 @@ func New(gfUserAgent, installationId string) *Client {
 	}
 }
 
-func (c *Client) Login(email, password, locale string, manager identitymgr.Manager) (bearer string, err error) {
+func (c *Client) Login(email, password, locale string, manager identitymgr.Manager) (string, error) {
 	blackbox, err := manager.NewBlackbox(nil)
 	if err != nil {
-		return
+		return "", err
 	}
 
-	body, err := json.Marshal(map[string]string{
-		"email":    email,
-		"password": password,
-		"locale":   locale,
-		"blackbox": blackbox.String(),
+	body, err := json.Marshal(loginRequest{
+		Email:    email,
+		Password: password,
+		Locale:   locale,
+		Blackbox: blackbox.String(),
 	})
 	if err != nil {
-		return
+		return "", err
 	}
 
 	header := headerOrigin()
@@ -124,7 +131,7 @@ func (c *Client) Login(email, password, locale string, manager identitymgr.Manag
 		errResp := AuthErrorResponse{}
 		err = json.NewDecoder(httpResp.Body).Decode(&errResp)
 		if err != nil {
-			return
+			return "", err
 		}
 		return "", fmt.Errorf("login failed: %s", errResp.Message)
 	}
@@ -132,12 +139,12 @@ func (c *Client) Login(email, password, locale string, manager identitymgr.Manag
 	authResp := AuthResponse{}
 	err = json.NewDecoder(httpResp.Body).Decode(&authResp)
 	if err != nil {
-		return
+		return "", err
 	}
 
 	if authResp.Token == "" {
 		err = errTokenNotSent
-		return
+		return "", err
 	}
 
 	return authResp.Token, nil
@@ -211,7 +218,7 @@ func (c *Client) Codes(bearer string, manager identitymgr.Manager, accountId, ga
 	gsId := generateGsid()
 	encBlackbox, err := manager.NewEncryptedBlackbox(gsId, accountId)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	ua, err := c.getCefUserAgent(accountId)
@@ -313,7 +320,7 @@ func (c *Client) calcCefUserAgentChecksum(accountId, clientVersion string) strin
 		oddHashers  = []hash.Hash{sha256.New(), sha1.New(), sha256.New()}
 	)
 
-	if firstDigit == 0 || (firstDigit-'0')%2 == 0 {
+	if (firstDigit-'0')%2 == 0 {
 		h := hashChain(evenHashers, certSha256)
 		return strings.Clone(h[:8])
 
@@ -334,7 +341,7 @@ func (c Client) getVersion() (string, error) {
 		return "", err
 	}
 
-	respJson := make(map[string]interface{})
+	respJson := make(map[string]any)
 	if err := json.NewDecoder(httpResp.Body).Decode(&respJson); err != nil {
 		return "", err
 	}
@@ -359,7 +366,6 @@ func (c Client) makeRequest(method, endpoint string, expectedStatusCode int, bod
 	response, err := c.httpClient.Do(request)
 	if err != nil {
 		return nil, err
-
 	}
 
 	if expectedStatusCode != response.StatusCode {
@@ -374,6 +380,6 @@ func (c Client) makeRequest(method, endpoint string, expectedStatusCode int, bod
 
 func generateGsid() string {
 	session := uuid.New().String()
-	num := rand.Intn(9999-1) + 1
+	num := rand.Intn(9999) + 1
 	return fmt.Sprintf("%s-%4d", session, num)
 }
