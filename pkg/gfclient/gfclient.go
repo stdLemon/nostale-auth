@@ -1,15 +1,12 @@
 package gfclient
 
 import (
-	"bytes"
 	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"hash"
-	"io"
 	"maps"
 	"math/rand"
 	"net/http"
@@ -17,14 +14,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stdLemon/nostale-auth/pkg/identitymgr"
+	"github.com/stdLemon/nostale-auth/pkg/restclient"
 )
 
 type Client struct {
 	gfUserAgent    string
 	cefUserAgent   string
 	installationId string
-	gfHeaders      http.Header
-	httpClient     *http.Client
+	httpClient     restclient.Client
 }
 
 type GameAccount struct {
@@ -99,11 +96,10 @@ const (
 func New(gfUserAgent, installationId string) *Client {
 	return &Client{gfUserAgent: gfUserAgent,
 		installationId: installationId,
-		httpClient:     new(http.Client),
-		gfHeaders: map[string][]string{
+		httpClient: restclient.New(map[string][]string{
 			"tnt-installation-id": {installationId},
 			"User-Agent":          {gfUserAgent},
-		},
+		}),
 	}
 }
 
@@ -113,60 +109,57 @@ func (c *Client) Login(email, password, locale string, manager identitymgr.Manag
 		return "", err
 	}
 
-	body, err := json.Marshal(loginRequest{
-		Email:    email,
-		Password: password,
-		Locale:   locale,
-		Blackbox: blackbox.String(),
-	})
-	if err != nil {
-		return "", err
-	}
-
 	header := headerOrigin()
 	maps.Copy(header, headerJsonContentType())
 
-	httpResp, err := c.makeRequest(http.MethodPost, _authProvidersSessionsEndpoint, http.StatusCreated, bytes.NewBuffer(body), header)
-	if err != nil {
-		errResp := AuthErrorResponse{}
-		err = json.NewDecoder(httpResp.Body).Decode(&errResp)
-		if err != nil {
-			return "", err
-		}
-		return "", fmt.Errorf("login failed: %s", errResp.Message)
-	}
+	authResp := new(AuthResponse)
+	errResp := new(AuthErrorResponse)
+	_, err = c.httpClient.NewRequest().
+		SetHeaders(header).
+		SetBody(loginRequest{
+			Email:    email,
+			Password: password,
+			Locale:   locale,
+			Blackbox: blackbox.String(),
+		}).
+		SetResult(authResp).
+		SetError(errResp).
+		Post(_authProvidersSessionsEndpoint)
 
-	authResp := AuthResponse{}
-	err = json.NewDecoder(httpResp.Body).Decode(&authResp)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("login failed: %w response: %q", err, errResp.Message)
 	}
 
 	if authResp.Token == "" {
-		err = errTokenNotSent
-		return "", err
+		return "", errTokenNotSent
 	}
 
 	return authResp.Token, nil
 }
 
 func (c *Client) Logout(bearer string) error {
-	_, err := c.makeRequest(http.MethodDelete, _authSessionsEndpoint, http.StatusAccepted, nil, headerAuthorization(bearer))
-	return err
+	_, err := c.httpClient.NewRequest().
+		SetHeaders(headerAuthorization(bearer)).
+		Delete(_authSessionsEndpoint)
+
+	if err != nil {
+		return fmt.Errorf("logout failed: %w", err)
+	}
+
+	return nil
 }
 
 func (c *Client) GetGameAccounts(bearer string) ([]GameAccount, error) {
 	header := headerOrigin()
 	maps.Copy(header, headerAuthorization(bearer))
 
-	httpResp, err := c.makeRequest(http.MethodGet, _accountsEndpoint, http.StatusOK, nil, header)
-	if err != nil {
-		return nil, err
-	}
-
 	resp := make(map[string]GameAccount)
-	if err := json.NewDecoder(httpResp.Body).Decode(&resp); err != nil {
-		return nil, err
+	_, err := c.httpClient.NewRequest().
+		SetHeaders(header).
+		SetResult(&resp).
+		Get(_accountsEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("getting game accounts failed: %w", err)
 	}
 
 	accs := make([]GameAccount, 0, len(resp))
@@ -183,32 +176,28 @@ func (c *Client) Iovation(bearer string, manager identitymgr.Manager, accountId 
 		return err
 	}
 
-	body, err := json.Marshal(map[string]string{
+	body := map[string]string{
 		"accountId": accountId,
 		"blackbox":  blackbox.String(),
 		"type":      "play_now",
-	})
-	if err != nil {
-		return err
 	}
 
 	header := headerJsonContentType()
 	maps.Copy(header, headerOrigin())
 	maps.Copy(header, headerAuthorization(bearer))
 
-	httpResp, err := c.makeRequest(http.MethodPost, _iovationEndpoint, http.StatusOK, bytes.NewBuffer(body), header)
-	if err != nil {
-		return err
-	}
-
 	resp := new(IovationResponse)
-	if err := json.NewDecoder(httpResp.Body).Decode(resp); err != nil {
-		return err
-
+	httpResp, err := c.httpClient.NewRequest().
+		SetHeaders(header).
+		SetBody(body).
+		SetResult(resp).
+		Post(_iovationEndpoint)
+	if err != nil {
+		return fmt.Errorf("iovation failed: %w", err)
 	}
 
 	if resp.Status != "ok" {
-		return errors.New(httpResp.Status)
+		return errors.New(httpResp.Status())
 	}
 
 	return nil
@@ -232,23 +221,21 @@ func (c *Client) Codes(bearer string, manager identitymgr.Manager, accountId, ga
 	maps.Copy(header, headerJsonContentType())
 	maps.Copy(header, headerAuthorization(bearer))
 
-	body, err := json.Marshal(map[string]string{
+	body := map[string]string{
 		"blackbox":              string(encBlackbox),
 		"gameId":                gameId,
 		"gsid":                  gsId,
 		"platformGameAccountId": accountId,
-	})
-	if err != nil {
-		return "", err
 	}
 
-	httpResp, err := c.makeRequest(http.MethodPost, _codesEndpoint, http.StatusCreated, bytes.NewBuffer(body), header)
-	if err != nil {
-		return "", err
-	}
 	resp := new(CodesResponse)
-	if err := json.NewDecoder(httpResp.Body).Decode(resp); err != nil {
-		return "", err
+	_, err = c.httpClient.NewRequest().
+		SetHeaders(header).
+		SetBody(body).
+		SetResult(resp).
+		Post(_codesEndpoint)
+	if err != nil {
+		return "", fmt.Errorf("getting codes failed: %w", err)
 	}
 
 	if resp.Message != "" {
@@ -336,46 +323,20 @@ func (c *Client) createCefUserAgent(accountId, clientVersion string) string {
 }
 
 func (c Client) getVersion() (string, error) {
-	httpResp, err := c.makeRequest(http.MethodGet, _clientVersionEndpoint, http.StatusOK, nil, nil)
-	if err != nil {
-		return "", err
-	}
-
 	respJson := make(map[string]any)
-	if err := json.NewDecoder(httpResp.Body).Decode(&respJson); err != nil {
-		return "", err
+	_, err := c.httpClient.NewRequest().
+		SetResult(&respJson).
+		Get(_clientVersionEndpoint)
+	if err != nil {
+		return "", fmt.Errorf("getting client version failed: %w", err)
 	}
 
-	clientVersion, ok := respJson["version"]
+	clientVersion, ok := respJson["version"].(string)
 	if !ok {
 		return "", errEmptyClientVersion
 	}
 
-	return clientVersion.(string), nil
-}
-
-func (c Client) makeRequest(method, endpoint string, expectedStatusCode int, body io.Reader, header http.Header) (*http.Response, error) {
-	request, err := http.NewRequest(method, endpoint, body)
-	if err != nil {
-		return nil, err
-	}
-
-	request.Header = c.gfHeaders.Clone()
-	maps.Copy(request.Header, header)
-
-	response, err := c.httpClient.Do(request)
-	if err != nil {
-		return nil, err
-	}
-
-	if expectedStatusCode != response.StatusCode {
-		return response, fmt.Errorf("got unexpected status code expected %s, got %s",
-			http.StatusText(expectedStatusCode),
-			http.StatusText(response.StatusCode),
-		)
-	}
-
-	return response, nil
+	return clientVersion, nil
 }
 
 func generateGsid() string {
