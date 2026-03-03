@@ -6,13 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type GfAccountData struct {
-	Email    string
-	Password string
-	Locale   string
-	Name     string
-}
-
 func TestCalcCefUserAgentChecksum(t *testing.T) {
 	tests := []struct {
 		name             string
