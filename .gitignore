@@ -2,3 +2,4 @@ node_modules
 account.json
 identity.json
 notes.md
+/examples/gfclient/gfclient
